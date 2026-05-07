@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
+  <g
+    fill="none"
+    stroke="currentColor"
+    stroke-width="44"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="256" cy="256" r="234" />
+    <ellipse cx="256" cy="256" rx="112" ry="234" />
+    <line x1="54" y1="180" x2="458" y2="180" />
+    <line x1="54" y1="332" x2="458" y2="332" />
+  </g>
+</svg>
