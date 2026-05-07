@@ -1,5 +1,3 @@
-import { imageLogoWhite } from "@/assets/images";
-
 import { HStack, VStack } from "../ui";
 
 const Footer = () => {
