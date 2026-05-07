@@ -1,4 +1,3 @@
-import { cva } from "class-variance-authority";
 import { HStack } from "@/components/ui";
 
 const Header = () => {

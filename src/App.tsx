@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { Footer, Header } from "@/components/features";
 import { VStack } from "@/components/ui";
+
 import { HomePage } from "./pages";
 
 const App = () => {

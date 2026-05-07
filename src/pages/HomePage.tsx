@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { EnhancementSelectButton } from "@/components/features";
 import { HStack, VStack } from "@/components/ui";
 import { ENHANCEMENT_RESULT_PROBAIBILITIES } from "@/constants";
@@ -5,7 +7,6 @@ import { useDisclosure } from "@/hooks";
 import { EnhancementLevel, EnhancementProbabilityKey } from "@/types";
 import { range } from "@/utils/array";
 import { getZeroSquareMatrix, invertMatrix } from "@/utils/matrix";
-import { useState } from "react";
 
 const HomePage = () => {
   const [currentLevel, setCurrentLevel] = useState<EnhancementLevel>(1);
