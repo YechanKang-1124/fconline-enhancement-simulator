@@ -7,6 +7,7 @@ import { useDisclosure } from "@/hooks";
 import { EnhancementLevel, EnhancementProbabilityKey } from "@/types";
 import { range } from "@/utils/array";
 import { getZeroSquareMatrix, invertMatrix } from "@/utils/matrix";
+import { round } from "@/utils/round";
 
 const HomePage = () => {
   const [currentLevel, setCurrentLevel] = useState<EnhancementLevel>(1);
@@ -42,7 +43,7 @@ const HomePage = () => {
     onToggleTargetLevelSelector();
   };
 
-  const simulate = () => {
+  const simulateCount = () => {
     if (currentLevel >= targetLevel) {
       return;
     }
@@ -85,12 +86,14 @@ const HomePage = () => {
     let k = 0;
     let cdf = 0;
     const attemptsCI = {
-      median: 0,
-      p90L: 0,
-      p90U: 0,
-      p95L: 0,
-      p95U: 0,
       p99L: 0,
+      p95L: 0,
+      p90L: 0,
+      p75L: 0,
+      median: 0,
+      p75U: 0,
+      p90U: 0,
+      p95U: 0,
       p99U: 0,
     };
 
@@ -98,7 +101,9 @@ const HomePage = () => {
       { key: "p99L", val: 0.005 },
       { key: "p95L", val: 0.025 },
       { key: "p90L", val: 0.05 },
+      { key: "p75L", val: 0.25 },
       { key: "median", val: 0.5 },
+      { key: "p75U", val: 0.75 },
       { key: "p90U", val: 0.95 },
       { key: "p95U", val: 0.975 },
       { key: "p99U", val: 0.995 },
@@ -161,7 +166,7 @@ const HomePage = () => {
           </HStack>
         </label>
       </VStack>
-      <button onClick={simulate}>계산하기</button>
+      <button onClick={simulateCount}>계산하기</button>
     </VStack>
   );
 };
