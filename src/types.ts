@@ -58,6 +58,13 @@ export type CalculationResult = {
   totalAvgCost: number;
 };
 
-export type SimulationResult = {
-  totalCostPercentiles: Percentiles;
+export type CostSimulationWorkerRequest = {
+  currentLevel: EnhancementLevel;
+  targetLevel: EnhancementLevel;
+  costsPerLevel: number[];
+  simulationCount: number;
+};
+
+export type CostSimulationWorkerResponse = {
+  costResultsBuffer: ArrayBuffer;
 };

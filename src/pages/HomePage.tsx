@@ -11,12 +11,13 @@ import {
   ENHANCEMENT_RESULT_PROBAIBILITIES,
 } from "@/constants";
 import { useDisclosure } from "@/hooks";
+import { SIMULATION_COUNT } from "@/simulation-settings";
 import {
   CalculationResult,
+  CostSimulationWorkerResponse,
   EnhancementLevel,
   EnhancementProbabilityKey,
   Percentiles,
-  SimulationResult,
 } from "@/types";
 import { range } from "@/utils/array";
 import { formatBP, formatFixedNumber, formatNumber } from "@/utils/formatters";
@@ -45,6 +46,38 @@ const DEFAULT_CALCULATION_RESULT: CalculationResult = {
   },
   avgCostsPerLevel: [],
   totalAvgCost: 0,
+};
+
+const getPercentileValue = (sortedValues: Float64Array, percentile: number) => {
+  if (sortedValues.length === 0) {
+    return 0;
+  }
+
+  const idx = Math.min(
+    sortedValues.length - 1,
+    Math.max(0, Math.ceil(sortedValues.length * percentile) - 1),
+  );
+
+  return sortedValues[idx];
+};
+
+const getPercentiles = (sortedValues: Float64Array): Percentiles => ({
+  p1: getPercentileValue(sortedValues, 0.01),
+  p5: getPercentileValue(sortedValues, 0.05),
+  p10: getPercentileValue(sortedValues, 0.1),
+  p25: getPercentileValue(sortedValues, 0.25),
+  p50: getPercentileValue(sortedValues, 0.5),
+  p75: getPercentileValue(sortedValues, 0.75),
+  p90: getPercentileValue(sortedValues, 0.9),
+  p95: getPercentileValue(sortedValues, 0.95),
+  p99: getPercentileValue(sortedValues, 0.99),
+});
+
+const getSimulationWorkerCount = () => {
+  const hardwareConcurrency = navigator.hardwareConcurrency ?? 4;
+  const availableWorkerCount = Math.max(1, hardwareConcurrency - 1);
+
+  return Math.min(SIMULATION_COUNT, availableWorkerCount, 8);
 };
 
 const calculate = (
@@ -153,7 +186,8 @@ const HomePage = () => {
   const [totalCostPercentiles, setTotalCostPercentiles] = useState<Percentiles>(
     { ...DEFAULT_PERCENTILES },
   );
-  const simulationWorkerRef = useRef<Worker | null>(null);
+  const simulationWorkersRef = useRef<Worker[]>([]);
+  const simulationRunIdRef = useRef(0);
 
   const {
     avgAttemptsPerLevel,
@@ -167,15 +201,16 @@ const HomePage = () => {
   );
 
   useEffect(() => {
-    simulationWorkerRef.current?.terminate();
-    simulationWorkerRef.current = null;
+    simulationWorkersRef.current.forEach((worker) => worker.terminate());
+    simulationWorkersRef.current = [];
+    simulationRunIdRef.current++;
     setSimulationStatus("idle");
     setTotalCostPercentiles({ ...DEFAULT_PERCENTILES });
   }, [currentLevel, targetLevel, encludeCost, costsPerLevel]);
 
   useEffect(() => {
     return () => {
-      simulationWorkerRef.current?.terminate();
+      simulationWorkersRef.current.forEach((worker) => worker.terminate());
     };
   }, []);
 
@@ -209,38 +244,79 @@ const HomePage = () => {
   };
 
   const handleSimulate = () => {
-    simulationWorkerRef.current?.terminate();
+    simulationWorkersRef.current.forEach((worker) => worker.terminate());
+    simulationWorkersRef.current = [];
 
-    const worker = new Worker(
-      new URL("../workers/cost-simulation.worker.ts", import.meta.url),
-      { type: "module" },
-    );
-
-    simulationWorkerRef.current = worker;
+    const runId = simulationRunIdRef.current + 1;
+    simulationRunIdRef.current = runId;
     setSimulationStatus("running");
 
-    worker.onmessage = (event: MessageEvent<SimulationResult>) => {
-      setTotalCostPercentiles(event.data.totalCostPercentiles);
-      setSimulationStatus("completed");
-      worker.terminate();
-      if (simulationWorkerRef.current === worker) {
-        simulationWorkerRef.current = null;
-      }
-    };
+    const workerCount = getSimulationWorkerCount();
+    const baseSimulationCount = Math.floor(SIMULATION_COUNT / workerCount);
+    const remainingSimulationCount = SIMULATION_COUNT % workerCount;
+    const costResultChunks: Float64Array[] = [];
+    let completedWorkerCount = 0;
 
-    worker.onerror = () => {
+    const handleWorkerError = () => {
+      if (simulationRunIdRef.current !== runId) {
+        return;
+      }
+
+      simulationWorkersRef.current.forEach((worker) => worker.terminate());
+      simulationWorkersRef.current = [];
       setSimulationStatus("idle");
-      worker.terminate();
-      if (simulationWorkerRef.current === worker) {
-        simulationWorkerRef.current = null;
-      }
     };
 
-    worker.postMessage({
-      currentLevel,
-      targetLevel,
-      costsPerLevel: [...costsPerLevel],
-    });
+    for (let i = 0; i < workerCount; i++) {
+      const workerSimulationCount =
+        baseSimulationCount + (i < remainingSimulationCount ? 1 : 0);
+
+      const worker = new Worker(
+        new URL("../workers/cost-simulation.worker.ts", import.meta.url),
+        { type: "module" },
+      );
+
+      simulationWorkersRef.current.push(worker);
+
+      worker.onmessage = (
+        event: MessageEvent<CostSimulationWorkerResponse>,
+      ) => {
+        if (simulationRunIdRef.current !== runId) {
+          worker.terminate();
+          return;
+        }
+
+        costResultChunks.push(new Float64Array(event.data.costResultsBuffer));
+        completedWorkerCount++;
+        worker.terminate();
+
+        if (completedWorkerCount !== workerCount) {
+          return;
+        }
+
+        const costResults = new Float64Array(SIMULATION_COUNT);
+        let offset = 0;
+
+        for (const chunk of costResultChunks) {
+          costResults.set(chunk, offset);
+          offset += chunk.length;
+        }
+
+        costResults.sort();
+        setTotalCostPercentiles(getPercentiles(costResults));
+        setSimulationStatus("completed");
+        simulationWorkersRef.current = [];
+      };
+
+      worker.onerror = handleWorkerError;
+
+      worker.postMessage({
+        currentLevel,
+        targetLevel,
+        costsPerLevel: [...costsPerLevel],
+        simulationCount: workerSimulationCount,
+      });
+    }
   };
 
   return (

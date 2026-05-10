@@ -1,67 +1,74 @@
-import {
-  DEFAULT_PERCENTILES,
-  ENHANCEMENT_RESULT_PROBAIBILITIES,
-} from "../constants";
-import { SIMULATION_COUNT } from "../simulation-settings";
+import { ENHANCEMENT_RESULT_PROBAIBILITIES } from "../constants";
 
 import type {
+  CostSimulationWorkerRequest,
+  CostSimulationWorkerResponse,
   EnhancementLevel,
   EnhancementProbabilityKey,
-  Percentiles,
-  SimulationResult,
 } from "../types";
 
-type SimulationRequest = {
-  currentLevel: EnhancementLevel;
-  targetLevel: EnhancementLevel;
-  costsPerLevel: number[];
+type Transition = {
+  level: EnhancementLevel;
+  cumulativeProb: number;
 };
 
-self.onmessage = (event: MessageEvent<SimulationRequest>) => {
-  const { currentLevel, targetLevel, costsPerLevel } = event.data;
+const getTransitions = (targetLevel: EnhancementLevel) => {
+  const transitions: Partial<Record<EnhancementProbabilityKey, Transition[]>> =
+    {};
 
-  if (currentLevel >= targetLevel) {
-    self.postMessage({
-      totalCostPercentiles: DEFAULT_PERCENTILES,
-    } satisfies SimulationResult);
-    return;
+  for (const [levelStr, resultProbs] of Object.entries(
+    ENHANCEMENT_RESULT_PROBAIBILITIES,
+  )) {
+    const level = Number(levelStr) as EnhancementProbabilityKey;
+
+    if (level >= targetLevel) {
+      continue;
+    }
+
+    let cumulativeProb = 0;
+    transitions[level] = Object.entries(resultProbs).map(
+      ([resultLevelStr, prob]) => {
+        cumulativeProb += prob as number;
+
+        return {
+          level: Number(resultLevelStr) as EnhancementLevel,
+          cumulativeProb,
+        };
+      },
+    );
   }
 
-  const costResults = new Float64Array(SIMULATION_COUNT);
+  return transitions;
+};
 
-  for (let i = 0; i < SIMULATION_COUNT; i++) {
+self.onmessage = (event: MessageEvent<CostSimulationWorkerRequest>) => {
+  const { currentLevel, targetLevel, costsPerLevel, simulationCount } =
+    event.data;
+
+  const transitions = getTransitions(targetLevel);
+  const costResults = new Float64Array(simulationCount);
+
+  for (let i = 0; i < simulationCount; i++) {
     let level = currentLevel;
     let runCost = 0;
 
     while (level < targetLevel) {
       runCost += costsPerLevel[level - 1];
-      const resultProbs =
-        ENHANCEMENT_RESULT_PROBAIBILITIES[level as EnhancementProbabilityKey];
-      const { [(level + 1) as EnhancementLevel]: success, ...rest } =
-        resultProbs;
-      const successProb = success ?? 0;
-      const restorationProbs = rest;
+      const levelTransitions = transitions[level as EnhancementProbabilityKey];
       const randomValue = Math.random();
 
-      if (randomValue < successProb) {
-        level++;
-      } else {
-        let cumulativeProb = successProb;
-        let fell = false;
+      if (levelTransitions == null) {
+        break;
+      }
 
-        for (const [fallbackLevel, prob] of Object.entries(restorationProbs)) {
-          cumulativeProb += prob as number;
-          if (randomValue < cumulativeProb) {
-            level = Number(fallbackLevel) as EnhancementLevel;
-            fell = true;
-            break;
-          }
-        }
-
-        if (!fell) {
-          level = Number(
-            Object.keys(restorationProbs)[0] || level,
-          ) as EnhancementLevel;
+      for (let j = 0; j < levelTransitions.length; j++) {
+        const transition = levelTransitions[j];
+        if (
+          randomValue < transition.cumulativeProb ||
+          j === levelTransitions.length - 1
+        ) {
+          level = transition.level;
+          break;
         }
       }
     }
@@ -69,23 +76,14 @@ self.onmessage = (event: MessageEvent<SimulationRequest>) => {
     costResults[i] = runCost;
   }
 
-  costResults.sort();
+  const costResultsBuffer = costResults.buffer as ArrayBuffer;
 
-  const totalCostPercentiles: Percentiles = {
-    p1: costResults[Math.ceil(SIMULATION_COUNT * 0.01) - 1],
-    p5: costResults[Math.ceil(SIMULATION_COUNT * 0.05) - 1],
-    p10: costResults[Math.ceil(SIMULATION_COUNT * 0.1) - 1],
-    p25: costResults[Math.ceil(SIMULATION_COUNT * 0.25) - 1],
-    p50: costResults[Math.ceil(SIMULATION_COUNT * 0.5) - 1],
-    p75: costResults[Math.ceil(SIMULATION_COUNT * 0.75) - 1],
-    p90: costResults[Math.ceil(SIMULATION_COUNT * 0.9) - 1],
-    p95: costResults[Math.ceil(SIMULATION_COUNT * 0.95) - 1],
-    p99: costResults[Math.ceil(SIMULATION_COUNT * 0.99) - 1],
-  };
-
-  self.postMessage({
-    totalCostPercentiles,
-  } satisfies SimulationResult);
+  self.postMessage(
+    {
+      costResultsBuffer,
+    } satisfies CostSimulationWorkerResponse,
+    { transfer: [costResultsBuffer] },
+  );
 };
 
 export {};
