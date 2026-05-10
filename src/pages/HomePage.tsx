@@ -31,8 +31,8 @@ type AttemptsCI = {
 };
 
 type SimulationResult = {
-  avgAttemptsPerLevel: string[];
-  totalAvgAttempts: string;
+  avgAttemptsPerLevel: number[];
+  totalAvgAttempts: number;
   attemptsCI: AttemptsCI;
 };
 
@@ -69,7 +69,7 @@ const ATTEMPTS_CI_KEY_BY_PERCENTILE: {
 
 const DEFAULT_SIMULATION_RESULT: SimulationResult = {
   avgAttemptsPerLevel: [],
-  totalAvgAttempts: "0.00",
+  totalAvgAttempts: 0,
   attemptsCI: {
     ...DEFAULT_ATTEMPTS_CI,
   },
@@ -105,8 +105,8 @@ const simulateCount = (
   const N = invertMatrix(I_minus_Q);
 
   const startIdx = currentLevel - 1;
-  const newAvgAttemptsPerLevel = N[startIdx];
-  const newTotalAvgAttempts = newAvgAttemptsPerLevel.reduce(
+  const avgAttemptsPerLevel = N[startIdx];
+  const totalAvgAttempts = avgAttemptsPerLevel.reduce(
     (sum, val) => sum + val,
     0,
   );
@@ -120,7 +120,7 @@ const simulateCount = (
 
   let k = 0;
   let cdf = 0;
-  const newAttemptsCI = {
+  const attemptsCI = {
     ...DEFAULT_ATTEMPTS_CI,
   };
 
@@ -156,17 +156,15 @@ const simulateCount = (
     cdf = 1 - pStillTransient;
 
     while (targetIdx < cdfTargets.length && cdf >= cdfTargets[targetIdx].val) {
-      newAttemptsCI[cdfTargets[targetIdx].key] = k;
+      attemptsCI[cdfTargets[targetIdx].key] = k;
       targetIdx++;
     }
   }
 
   return {
-    avgAttemptsPerLevel: newAvgAttemptsPerLevel.map((attempt) =>
-      formatFixedNumber(attempt, 2),
-    ),
-    totalAvgAttempts: formatFixedNumber(newTotalAvgAttempts, 2),
-    attemptsCI: newAttemptsCI,
+    avgAttemptsPerLevel,
+    totalAvgAttempts,
+    attemptsCI,
   };
 };
 
@@ -234,58 +232,66 @@ const HomePage = () => {
         </HStack>
       </VStack>
       <VStack className="w-full gap-2">
-        <p className="text-xl font-semibold">
-          각 강화 단계별 평균 강화 시도 횟수
-        </p>
-        <HStack className="gap-8">
-          <VStack className="gap-2">
-            {avgAttemptsPerLevel.map((_, idx) => (
-              <HStack key={idx} className="gap-2">
-                <EnhancementBadge level={(idx + 1) as EnhancementLevel} />
-                <IconArrowDown className="size-5 -rotate-90 text-gray-600" />
-                <EnhancementBadge level={(idx + 2) as EnhancementLevel} />
-              </HStack>
-            ))}
-            <div className={textBoxVariants({ justify: "center" })}>
-              <p className="font-semibold text-lg">합계</p>
-            </div>
-          </VStack>
-          <VStack className="justify-between self-stretch">
+        <h2 className="text-xl font-semibold">
+          각 강화 등급별 평균 강화 시도 횟수
+        </h2>
+        <table>
+          <thead>
+            <tr>
+              <th>강화 등급</th>
+              <th>평균 강화 시도 횟수</th>
+            </tr>
+          </thead>
+          <tbody>
             {avgAttemptsPerLevel.map((attempts, idx) => (
-              <div key={idx} className={textBoxVariants()}>
-                <p>{attempts}회</p>
-              </div>
+              <tr key={idx}>
+                <td>
+                  <HStack key={idx} className="gap-2">
+                    <EnhancementBadge level={(idx + 1) as EnhancementLevel} />
+                    <IconArrowDown className="size-5 -rotate-90 text-gray-600" />
+                    <EnhancementBadge level={(idx + 2) as EnhancementLevel} />
+                  </HStack>
+                </td>
+                <td>
+                  <p>{formatFixedNumber(attempts, 2)}회</p>
+                </td>
+              </tr>
             ))}
-            <div className={textBoxVariants()}>
-              <p className="font-semibold">{totalAvgAttempts}회</p>
-            </div>
-          </VStack>
-        </HStack>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>합계</th>
+              <th>{formatFixedNumber(totalAvgAttempts)}회</th>
+            </tr>
+          </tfoot>
+        </table>
       </VStack>
       <VStack className="w-full gap-2">
         <p className="text-xl font-semibold">총 강화 시도 횟수 백분위수</p>
-        <HStack className="gap-8">
-          <VStack className="gap-2">
-            {ATTEMPTS_CI_KEY_BY_PERCENTILE.map(({ percentile }) => (
-              <div
-                key={percentile}
-                className="w-full flex items-center py-1 px-2 justify-start"
-              >
-                <p className="font-semibold">{percentile}</p>
-              </div>
+        <table>
+          <thead>
+            <tr>
+              <th>백분위수</th>
+              <th>횟수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ATTEMPTS_CI_KEY_BY_PERCENTILE.map(({ percentile, key }) => (
+              <tr key={percentile}>
+                <td>
+                  <div className="w-full flex items-center py-1 px-2 justify-start">
+                    <p className="font-semibold">{percentile}</p>
+                  </div>
+                </td>
+                <td>
+                  <div className="w-full flex items-center py-1 px-2 justify-end">
+                    {formatNumber(attemptsCI[key])}회
+                  </div>
+                </td>
+              </tr>
             ))}
-          </VStack>
-          <VStack className="gap-2">
-            {ATTEMPTS_CI_KEY_BY_PERCENTILE.map(({ key }) => (
-              <div
-                key={key}
-                className="w-full flex items-center py-1 px-2 justify-end"
-              >
-                {formatNumber(attemptsCI[key])}회
-              </div>
-            ))}
-          </VStack>
-        </HStack>
+          </tbody>
+        </table>
       </VStack>
     </VStack>
   );
