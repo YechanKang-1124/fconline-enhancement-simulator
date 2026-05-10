@@ -9,6 +9,7 @@ import {
 export function getEnhancementResultProbabilities(
   successProbs: SuccessProbabilities,
   restorationProbs: RestorationProbabilities,
+  isEnhancementLevelProtected: boolean = true,
 ): ResultProbabilities {
   const resultProbs: Partial<ResultProbabilities> = {};
 
@@ -24,7 +25,7 @@ export function getEnhancementResultProbabilities(
 
     levelResult[level + 1] = successProb;
 
-    if (level >= 8) {
+    if (isEnhancementLevelProtected && level >= 8) {
       levelResult[level] = failureProb;
     } else {
       const restores = restorationProbs[level];

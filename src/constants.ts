@@ -1,4 +1,6 @@
+import { IS_ENHANCEMENT_LEVEL_PROTECTED } from "./simulation-settings";
 import {
+  Percentiles,
   RestorationProbabilities,
   ResultProbabilities,
   SuccessProbabilities,
@@ -60,4 +62,17 @@ export const ENHANCEMENT_RESULT_PROBAIBILITIES: ResultProbabilities =
   getEnhancementResultProbabilities(
     SUCCESS_PROBABILITIES,
     RESTORATION_PROBABILITIES,
+    IS_ENHANCEMENT_LEVEL_PROTECTED,
   );
+
+export const DEFAULT_PERCENTILES: Percentiles = {
+  p1: 0,
+  p5: 0,
+  p10: 0,
+  p25: 0,
+  p50: 0,
+  p75: 0,
+  p90: 0,
+  p95: 0,
+  p99: 0,
+};

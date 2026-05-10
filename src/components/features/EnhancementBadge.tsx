@@ -10,7 +10,7 @@ const EnhancementBadge = ({ level }: EnhancementBadgeProps) => {
   const tier = getEnhancementTier(level);
 
   return (
-    <div className={enhanceTierVariants({ type: "badge", tier })}>{level}</div>
+    <div className={enhanceTierVariants({ size: "md", tier })}>{level}</div>
   );
 };
 

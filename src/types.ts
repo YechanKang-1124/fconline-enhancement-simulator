@@ -37,3 +37,27 @@ export type ResultProbabilities = Record<
   EnhancementProbabilityKey,
   EnhancementResultProbabilities
 >;
+
+export type Percentiles = {
+  p1: number;
+  p5: number;
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  p95: number;
+  p99: number;
+};
+
+export type CalculationResult = {
+  avgAttemptsPerLevel: number[];
+  totalAvgAttempts: number;
+  attemptsPercentiles: Percentiles;
+  avgCostsPerLevel: number[];
+  totalAvgCost: number;
+};
+
+export type SimulationResult = {
+  totalCostPercentiles: Percentiles;
+};

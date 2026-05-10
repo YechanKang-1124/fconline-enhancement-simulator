@@ -68,9 +68,9 @@ const buttonVariants = cva(
         gray: null,
       },
       size: {
-        sm: "rounded-md px-2 py-1.5 text-xs",
+        sm: "rounded-md px-1.5 py-1 text-xs",
         md: "rounded-lg px-3 py-2 text-sm",
-        lg: "rounded-xl px-5 py-3 text-lg font-semibold",
+        lg: "rounded-xl px-4.5 py-3 text-lg font-semibold",
       },
       disabled: {
         true: "cursor-not-allowed border-gray-200 bg-gray-200 text-gray-400",

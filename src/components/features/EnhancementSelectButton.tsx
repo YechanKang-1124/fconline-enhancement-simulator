@@ -50,7 +50,11 @@ const EnhancementSelectButton = ({
     <div ref={containerRef} className="relative">
       <button
         onClick={onToggleLevelSelector}
-        className={enhanceTierVariants({ type: "button", tier })}
+        className={enhanceTierVariants({
+          size: "lg",
+          tier,
+          className: "cursor-pointer",
+        })}
         {...props}
       >
         <HStack className="gap-2.5">
@@ -60,15 +64,16 @@ const EnhancementSelectButton = ({
       </button>
 
       {isLevelSelectorOpen && (
-        <HStack className="absolute top-full left-0 z-10 items-start gap-1 bg-white pt-1">
+        <HStack className="absolute top-full left-0 z-10 mt-1 -translate-x-2 items-start gap-1 rounded-sm border border-gray-200 bg-white p-2 shadow-lg">
           <VStack className="h-full gap-1">
             {(range(1, 8) as EnhancementLevel[]).map((level) => (
               <button
                 key={level}
                 onClick={() => onChangeLevel(level)}
                 className={enhanceTierVariants({
-                  type: "button",
+                  size: "lg",
                   tier: getEnhancementTier(level),
+                  className: "cursor-pointer",
                 })}
               >
                 {level}
@@ -81,8 +86,9 @@ const EnhancementSelectButton = ({
                 key={level}
                 onClick={() => onChangeLevel(level)}
                 className={enhanceTierVariants({
-                  type: "button",
+                  size: "lg",
                   tier: getEnhancementTier(level),
+                  className: "cursor-pointer",
                 })}
               >
                 {level}

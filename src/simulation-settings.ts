@@ -1,0 +1,3 @@
+export const SIMULATION_COUNT = 100_000;
+
+export const IS_ENHANCEMENT_LEVEL_PROTECTED = true;

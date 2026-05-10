@@ -1,12 +1,12 @@
 import { cva, type VariantProps } from "class-variance-authority";
 
 export const enhanceTierVariants = cva(
-  "inline-flex h-9 items-center justify-center border-2 font-[FCOAllSans] text-3xl font-bold",
+  "inline-flex items-center justify-center font-[FCOAllSans] font-bold",
   {
     variants: {
-      type: {
-        badge: "w-14.5",
-        button: "w-20.5 cursor-pointer",
+      size: {
+        md: "h-7 w-12.5 border-2 text-2xl",
+        lg: "h-9 w-20.5 cursor-pointer border-3 text-3xl",
       },
       tier: {
         iron: "border-t-[#62676d] border-r-[#393a3c] border-b-[#393a3c] border-l-[#62676d] bg-[linear-gradient(140deg,#51545a,#42464d)] text-[#c5c8c9]",
