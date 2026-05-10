@@ -39,12 +39,10 @@ const EnhancementSelectButton = ({
       onCloseLevelSelector();
     };
 
-    document.addEventListener("mousedown", closeLevelSelector);
-    document.addEventListener("touchstart", closeLevelSelector);
+    document.addEventListener("pointerdown", closeLevelSelector);
 
     return () => {
-      document.removeEventListener("mousedown", closeLevelSelector);
-      document.removeEventListener("touchstart", closeLevelSelector);
+      document.removeEventListener("pointerdown", closeLevelSelector);
     };
   }, [containerRef, onCloseLevelSelector]);
 

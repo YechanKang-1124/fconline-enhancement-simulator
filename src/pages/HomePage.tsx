@@ -1,5 +1,5 @@
 import { cva } from "class-variance-authority";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { IconArrowDown } from "@/assets/icons";
 import {
@@ -11,8 +11,8 @@ import { ENHANCEMENT_RESULT_PROBAIBILITIES } from "@/constants";
 import { useDisclosure } from "@/hooks";
 import { EnhancementLevel, EnhancementProbabilityKey } from "@/types";
 import { range } from "@/utils/array";
+import { formatFixedNumber, formatNumber } from "@/utils/formatters";
 import { getZeroSquareMatrix, invertMatrix } from "@/utils/matrix";
-import { roundFixed } from "@/utils/round";
 
 type AttemptsCI = {
   p99L: number;
@@ -28,6 +28,12 @@ type AttemptsCI = {
   p95U: number;
   p98U: number;
   p99U: number;
+};
+
+type SimulationResult = {
+  avgAttemptsPerLevel: string[];
+  totalAvgAttempts: string;
+  attemptsCI: AttemptsCI;
 };
 
 const DEFAULT_ATTEMPTS_CI: AttemptsCI = {
@@ -46,114 +52,133 @@ const DEFAULT_ATTEMPTS_CI: AttemptsCI = {
   p99U: 0,
 };
 
+const ATTEMPTS_CI_KEY_BY_PERCENTILE: {
+  percentile: string;
+  key: keyof AttemptsCI;
+}[] = [
+  { percentile: "상위 1%", key: "p98L" },
+  { percentile: "상위 5%", key: "p90L" },
+  { percentile: "상위 10%", key: "p80L" },
+  { percentile: "상위 25%", key: "p50L" },
+  { percentile: "중앙값", key: "median" },
+  { percentile: "하위 25%", key: "p50U" },
+  { percentile: "하위 10%", key: "p80U" },
+  { percentile: "하위 5%", key: "p90U" },
+  { percentile: "하위 1%", key: "p98U" },
+];
+
+const DEFAULT_SIMULATION_RESULT: SimulationResult = {
+  avgAttemptsPerLevel: [],
+  totalAvgAttempts: "0.00",
+  attemptsCI: {
+    ...DEFAULT_ATTEMPTS_CI,
+  },
+};
+
+const simulateCount = (
+  currentLevel: EnhancementLevel,
+  targetLevel: EnhancementLevel,
+): SimulationResult => {
+  if (currentLevel >= targetLevel) {
+    return DEFAULT_SIMULATION_RESULT;
+  }
+
+  const size = targetLevel - 1;
+
+  const Q = getZeroSquareMatrix(size);
+  for (let level = 1; level <= size; level++) {
+    const i = level - 1;
+    const result_probs =
+      ENHANCEMENT_RESULT_PROBAIBILITIES[level as EnhancementProbabilityKey];
+    for (const [resultLevelStr, prob] of Object.entries(result_probs)) {
+      const resultLevel = Number(resultLevelStr);
+      const j = resultLevel - 1;
+      if (resultLevel < targetLevel) {
+        Q[i][j] = prob;
+      }
+    }
+  }
+
+  const I_minus_Q = range(size).map((_, i) =>
+    range(size).map((_, j) => (i === j ? 1 : 0) - Q[i][j]),
+  );
+  const N = invertMatrix(I_minus_Q);
+
+  const startIdx = currentLevel - 1;
+  const newAvgAttemptsPerLevel = N[startIdx];
+  const newTotalAvgAttempts = newAvgAttemptsPerLevel.reduce(
+    (sum, val) => sum + val,
+    0,
+  );
+
+  // let totalAvgCost = 0;
+  // avgAttemptsPerStage.forEach((attempts, idx) => {
+  //   totalAvgCost += attempts * costs[idx + 1];
+  // });
+  let currentVector = Array(size).fill(0);
+  currentVector[startIdx] = 1;
+
+  let k = 0;
+  let cdf = 0;
+  const newAttemptsCI = {
+    ...DEFAULT_ATTEMPTS_CI,
+  };
+
+  const cdfTargets = [
+    { key: "p99L", val: 0.005 },
+    { key: "p98L", val: 0.01 },
+    { key: "p95L", val: 0.025 },
+    { key: "p90L", val: 0.05 },
+    { key: "p80L", val: 0.1 },
+    { key: "p50L", val: 0.25 },
+    { key: "median", val: 0.5 },
+    { key: "p50U", val: 0.75 },
+    { key: "p80U", val: 0.9 },
+    { key: "p90U", val: 0.95 },
+    { key: "p95U", val: 0.975 },
+    { key: "p98U", val: 0.99 },
+    { key: "p99U", val: 0.995 },
+  ] satisfies { key: keyof AttemptsCI; val: number }[];
+  let targetIdx = 0;
+
+  while (cdf < 0.9999 && k < 100000 && targetIdx < cdfTargets.length) {
+    k++;
+    const nextVector = Array(size).fill(0);
+    for (let i = 0; i < size; i++) {
+      if (currentVector[i] > 0) {
+        for (let j = 0; j < size; j++) {
+          nextVector[j] += currentVector[i] * Q[i][j];
+        }
+      }
+    }
+    currentVector = nextVector;
+    const pStillTransient = currentVector.reduce((a, b) => a + b, 0);
+    cdf = 1 - pStillTransient;
+
+    while (targetIdx < cdfTargets.length && cdf >= cdfTargets[targetIdx].val) {
+      newAttemptsCI[cdfTargets[targetIdx].key] = k;
+      targetIdx++;
+    }
+  }
+
+  return {
+    avgAttemptsPerLevel: newAvgAttemptsPerLevel.map((attempt) =>
+      formatFixedNumber(attempt, 2),
+    ),
+    totalAvgAttempts: formatFixedNumber(newTotalAvgAttempts, 2),
+    attemptsCI: newAttemptsCI,
+  };
+};
+
 const HomePage = () => {
   const [currentLevel, setCurrentLevel] = useState<EnhancementLevel>(1);
   const [targetLevel, setTargetLevel] = useState<EnhancementLevel>(8);
   const [encludeCost, setEncludeCost] = useState(false);
 
-  const [avgAttemptsPerLevel, setAvgAttemptsPerLevel] = useState<string[]>([]);
-  const [totalAvgAttempts, setTotalAvgAttempts] = useState<string>("0.00");
-  const [attemptsCI, setAttemptsCI] = useState<AttemptsCI>(() => ({
-    ...DEFAULT_ATTEMPTS_CI,
-  }));
-
-  const simulateCount = () => {
-    if (currentLevel >= targetLevel) {
-      return;
-    }
-
-    const size = targetLevel - 1;
-
-    const Q = getZeroSquareMatrix(size);
-    for (let level = 1; level <= size; level++) {
-      const i = level - 1;
-      const result_probs =
-        ENHANCEMENT_RESULT_PROBAIBILITIES[level as EnhancementProbabilityKey];
-      for (const [resultLevelStr, prob] of Object.entries(result_probs)) {
-        const resultLevel = Number(resultLevelStr);
-        const j = resultLevel - 1;
-        if (resultLevel < targetLevel) {
-          Q[i][j] = prob;
-        }
-      }
-    }
-
-    const I_minus_Q = range(size).map((_, i) =>
-      range(size).map((_, j) => (i === j ? 1 : 0) - Q[i][j]),
-    );
-    const N = invertMatrix(I_minus_Q);
-
-    const startIdx = currentLevel - 1;
-    const newAvgAttemptsPerLevel = N[startIdx];
-    const newTotalAvgAttempts = newAvgAttemptsPerLevel.reduce(
-      (sum, val) => sum + val,
-      0,
-    );
-
-    // let totalAvgCost = 0;
-    // avgAttemptsPerStage.forEach((attempts, idx) => {
-    //   totalAvgCost += attempts * costs[idx + 1];
-    // });
-    let currentVector = Array(size).fill(0);
-    currentVector[startIdx] = 1;
-
-    let k = 0;
-    let cdf = 0;
-    const newAttemptsCI = {
-      ...DEFAULT_ATTEMPTS_CI,
-    };
-
-    const cdfTargets = [
-      { key: "p99L", val: 0.005 },
-      { key: "p98L", val: 0.01 },
-      { key: "p95L", val: 0.025 },
-      { key: "p90L", val: 0.05 },
-      { key: "p80L", val: 0.1 },
-      { key: "p50L", val: 0.25 },
-      { key: "median", val: 0.5 },
-      { key: "p50U", val: 0.75 },
-      { key: "p80U", val: 0.9 },
-      { key: "p90U", val: 0.95 },
-      { key: "p95U", val: 0.975 },
-      { key: "p98U", val: 0.99 },
-      { key: "p99U", val: 0.995 },
-    ];
-    let targetIdx = 0;
-
-    while (cdf < 0.9999 && k < 100000 && targetIdx < cdfTargets.length) {
-      k++;
-      const nextVector = Array(size).fill(0);
-      for (let i = 0; i < size; i++) {
-        if (currentVector[i] > 0) {
-          for (let j = 0; j < size; j++) {
-            nextVector[j] += currentVector[i] * Q[i][j];
-          }
-        }
-      }
-      currentVector = nextVector;
-      const pStillTransient = currentVector.reduce((a, b) => a + b, 0);
-      cdf = 1 - pStillTransient;
-
-      while (
-        targetIdx < cdfTargets.length &&
-        cdf >= cdfTargets[targetIdx].val
-      ) {
-        newAttemptsCI[cdfTargets[targetIdx].key as keyof typeof newAttemptsCI] =
-          k;
-        targetIdx++;
-      }
-    }
-
-    setAvgAttemptsPerLevel(
-      newAvgAttemptsPerLevel.map((attempt) => roundFixed(attempt, 2)),
-    );
-    setTotalAvgAttempts(roundFixed(newTotalAvgAttempts, 2));
-    setAttemptsCI(newAttemptsCI);
-  };
-
-  useEffect(() => {
-    simulateCount();
-  }, [currentLevel, targetLevel]);
+  const { avgAttemptsPerLevel, totalAvgAttempts, attemptsCI } = useMemo(
+    () => simulateCount(currentLevel, targetLevel),
+    [currentLevel, targetLevel],
+  );
 
   const {
     isOpen: isCurrentLevelSelectorOpen,
@@ -187,30 +212,26 @@ const HomePage = () => {
   return (
     <VStack className="min-h-screen w-full py-4 gap-8">
       <VStack className="gap-2">
-        <label className="block w-full">
-          <HStack className="gap-4">
-            <span className="block text-2xl font-semibold">현재 강화 등급</span>
-            <EnhancementSelectButton
-              level={currentLevel}
-              onChangeLevel={handleChangeCurrentLevel}
-              isLevelSelectorOpen={isCurrentLevelSelectorOpen}
-              onToggleLevelSelector={handleToggleCurrentLevelSelector}
-              onCloseLevelSelector={onCloseCurrentLevelSelector}
-            />
-          </HStack>
-        </label>
-        <label className="block w-full">
-          <HStack className="gap-4">
-            <span className="block text-2xl font-semibold">목표 강화 등급</span>
-            <EnhancementSelectButton
-              level={targetLevel}
-              onChangeLevel={handleChangeTargetLevel}
-              isLevelSelectorOpen={isTargetLevelSelectorOpen}
-              onToggleLevelSelector={handleToggleTargetLevelSelector}
-              onCloseLevelSelector={onCloseTargetLevelSelector}
-            />
-          </HStack>
-        </label>
+        <HStack className="gap-4 w-full">
+          <span className="block text-2xl font-semibold">현재 강화 등급</span>
+          <EnhancementSelectButton
+            level={currentLevel}
+            onChangeLevel={handleChangeCurrentLevel}
+            isLevelSelectorOpen={isCurrentLevelSelectorOpen}
+            onToggleLevelSelector={handleToggleCurrentLevelSelector}
+            onCloseLevelSelector={onCloseCurrentLevelSelector}
+          />
+        </HStack>
+        <HStack className="gap-4 w-full">
+          <span className="block text-2xl font-semibold">목표 강화 등급</span>
+          <EnhancementSelectButton
+            level={targetLevel}
+            onChangeLevel={handleChangeTargetLevel}
+            isLevelSelectorOpen={isTargetLevelSelectorOpen}
+            onToggleLevelSelector={handleToggleTargetLevelSelector}
+            onCloseLevelSelector={onCloseTargetLevelSelector}
+          />
+        </HStack>
       </VStack>
       <VStack className="w-full gap-2">
         <p className="text-xl font-semibold">
@@ -236,13 +257,35 @@ const HomePage = () => {
               </div>
             ))}
             <div className={textBoxVariants()}>
-              <p className="font-semibold text-lg">{totalAvgAttempts}회</p>
+              <p className="font-semibold">{totalAvgAttempts}회</p>
             </div>
           </VStack>
         </HStack>
       </VStack>
       <VStack className="w-full gap-2">
         <p className="text-xl font-semibold">총 강화 시도 횟수 백분위수</p>
+        <HStack className="gap-8">
+          <VStack className="gap-2">
+            {ATTEMPTS_CI_KEY_BY_PERCENTILE.map(({ percentile }) => (
+              <div
+                key={percentile}
+                className="w-full flex items-center py-1 px-2 justify-start"
+              >
+                <p className="font-semibold">{percentile}</p>
+              </div>
+            ))}
+          </VStack>
+          <VStack className="gap-2">
+            {ATTEMPTS_CI_KEY_BY_PERCENTILE.map(({ key }) => (
+              <div
+                key={key}
+                className="w-full flex items-center py-1 px-2 justify-end"
+              >
+                {formatNumber(attemptsCI[key])}회
+              </div>
+            ))}
+          </VStack>
+        </HStack>
       </VStack>
     </VStack>
   );
