@@ -1,13 +1,12 @@
 import { cva } from "class-variance-authority";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { IconArrowDown } from "@/assets/icons";
+import { IconChevronDown } from "@/assets/icons";
 import {
-  EnhancementBadge,
   EnhancementSelectButton,
   EnhancementStepIndicator,
 } from "@/components/features";
-import { Button, HStack, Input, VStack } from "@/components/ui";
+import { Button, Collapse, HStack, Input, VStack } from "@/components/ui";
 import {
   DEFAULT_PERCENTILES,
   ENHANCEMENT_RESULT_PROBAIBILITIES,
@@ -250,6 +249,9 @@ const HomePage = () => {
     onToggleTargetLevelSelector();
   };
 
+  const { isOpen: isCostInputTableOpen, onToggle: onToggleCostInputTable } =
+    useDisclosure();
+
   const handleSimulate = () => {
     simulationWorkersRef.current.forEach((worker) => worker.terminate());
     simulationWorkersRef.current = [];
@@ -450,8 +452,71 @@ const HomePage = () => {
       {selectedTab === "cost" && (
         <VStack className="gap-8 px-6 pt-2">
           <VStack className="w-full items-stretch gap-3">
+            <a
+              onClick={onToggleCostInputTable}
+              className="w-fit cursor-pointer"
+            >
+              <HStack className="gap-2.5">
+                <h2 className="text-xl font-semibold">강화 등급별 강화 비용</h2>
+                <IconChevronDown
+                  className={chevronVariants({ isOpen: isCostInputTableOpen })}
+                />
+              </HStack>
+            </a>
+            <Collapse isOpen={isCostInputTableOpen}>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full table-fixed border-collapse border">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="w-1/2 border py-2.5 text-center font-semibold">
+                        강화 등급
+                      </th>
+                      <th className="w-1/2 border py-2.5 text-center font-semibold">
+                        강화 비용
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    {costsPerLevel.map((cost, idx) => (
+                      <tr key={idx}>
+                        <td className="border px-4 py-2 align-middle">
+                          <EnhancementStepIndicator
+                            level={(idx + 1) as EnhancementLevel}
+                          />
+                        </td>
+                        <td className="border px-4 align-middle tabular-nums">
+                          <HStack className="gap-1">
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              value={formatNumber(cost)}
+                              onChange={(event) => {
+                                const valueWithoutCommas =
+                                  event.target.value.replaceAll(",", "");
+                                if (!/^\d*$/.test(valueWithoutCommas)) {
+                                  return;
+                                }
+                                setCostsPerLevel((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = Number(valueWithoutCommas);
+                                  return next;
+                                });
+                              }}
+                              className="text-end font-light"
+                            />
+                            <span className="font-normal">BP</span>
+                          </HStack>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Collapse>
+          </VStack>
+          <VStack className="w-full items-stretch gap-3">
             <h2 className="text-xl font-semibold">
-              강화 등급별 강화 시도 비용
+              강화 등급별 평균 강화 비용
             </h2>
             <div className="w-full overflow-x-auto">
               <table className="w-full table-fixed border-collapse border">
@@ -461,89 +526,30 @@ const HomePage = () => {
                       강화 등급
                     </th>
                     <th className="w-1/2 border py-2.5 text-center font-semibold">
-                      강화 비용
+                      평균 강화 비용
                     </th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
-                  {range(targetLevel - 1).map((_, idx) => (
+                  {avgCostsPerLevel.map((cost, idx) => (
                     <tr key={idx}>
                       <td className="border px-4 py-2 align-middle">
                         <EnhancementStepIndicator
                           level={(idx + 1) as EnhancementLevel}
                         />
                       </td>
-                      <td className="border px-4 py-2 align-middle tabular-nums">
-                        <HStack className="gap-1">
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={formatNumber(costsPerLevel[idx])}
-                            onChange={(event) => {
-                              const valueWithoutCommas =
-                                event.target.value.replaceAll(",", "");
-                              if (!/^\d*$/.test(valueWithoutCommas)) {
-                                return;
-                              }
-                              setCostsPerLevel((prev) => {
-                                const next = [...prev];
-                                next[idx] = Number(valueWithoutCommas);
-                                return next;
-                              });
-                            }}
-                            className="text-end font-medium"
-                          />
-                          <span>BP</span>
-                        </HStack>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </VStack>
-          <VStack className="w-full items-stretch gap-3">
-            <h2 className="text-xl font-semibold">
-              강화 등급별 평균 강화 시도 비용
-            </h2>
-            <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-80 table-fixed border-collapse border text-sm sm:text-base">
-                <thead>
-                  <tr>
-                    <th className="w-1/2 border px-4 py-3 text-left font-semibold">
-                      강화 등급
-                    </th>
-                    <th className="w-1/2 border px-4 py-3 text-right font-semibold">
-                      평균 강화 시도 비용
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {avgCostsPerLevel.map((cost, idx) => (
-                    <tr key={idx}>
-                      <td className="border px-4 py-2.5 align-middle">
-                        <HStack key={idx} className="justify-start gap-2">
-                          <EnhancementBadge
-                            level={(idx + 1) as EnhancementLevel}
-                          />
-                          <IconArrowDown className="size-5 -rotate-90 text-gray-600" />
-                          <EnhancementBadge
-                            level={(idx + 2) as EnhancementLevel}
-                          />
-                        </HStack>
-                      </td>
-                      <td className="border px-4 py-2.5 text-right align-middle font-medium tabular-nums">
+                      <td className="border px-4 py-2 text-right align-middle font-light tabular-nums">
                         <p>{formatBP(cost)}</p>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
+                <tfoot className="bg-gray-200">
                   <tr>
-                    <th className="border px-4 py-3 text-left font-semibold">
+                    <th className="border px-4 py-3 text-center text-base font-semibold">
                       합계
                     </th>
-                    <th className="border px-4 py-3 text-right font-semibold tabular-nums">
+                    <th className="border px-4 py-3 text-right text-sm font-semibold tabular-nums">
                       {formatBP(totalAvgCost)}
                     </th>
                   </tr>
@@ -553,9 +559,7 @@ const HomePage = () => {
           </VStack>
           <VStack className="w-full items-stretch gap-3">
             <HStack className="w-full justify-between">
-              <h2 className="text-xl font-semibold">
-                총 강화 시도 비용 백분위수
-              </h2>
+              <h2 className="text-xl font-semibold">총 강화 비용 백분위수</h2>
               <Button
                 color="blue"
                 size="sm"
@@ -566,27 +570,27 @@ const HomePage = () => {
               </Button>
             </HStack>
             <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-72 table-fixed border-collapse border text-sm sm:text-base">
-                <thead>
+              <table className="w-full table-fixed border-collapse border">
+                <thead className="bg-gray-200">
                   <tr>
-                    <th className="w-1/2 border px-4 py-3 text-left font-semibold">
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
                       백분위
                     </th>
-                    <th className="w-1/2 border px-4 py-3 text-right font-semibold">
-                      총 강화 시도 비용
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
+                      총 강화 비용
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="text-sm">
                   {PERCENTILE_LABELS_BY_PERCENTILE.map(
                     ({ percentile, key }) => (
                       <tr key={percentile}>
                         <td className="border px-4 py-2.5 align-middle">
-                          <div className="flex w-full items-center justify-start">
+                          <div className="flex w-full items-center justify-center">
                             <p className="font-semibold">{percentile}</p>
                           </div>
                         </td>
-                        <td className="border px-4 py-2.5 text-right align-middle font-medium tabular-nums">
+                        <td className="border px-4 py-2.5 text-right align-middle font-light tabular-nums">
                           <div className="flex w-full items-center justify-end">
                             {simulationStatus === "idle"
                               ? "계산 전"
@@ -609,15 +613,24 @@ const HomePage = () => {
 };
 
 const tabVariants = cva(
-  "flex w-1/2 cursor-pointer items-center justify-center border-x-2 border-t-2 py-2 text-lg font-semibold",
+  "flex w-1/2 cursor-pointer items-center justify-center border-x-2 border-t-2 border-gray-100 py-2 text-lg font-semibold",
   {
     variants: {
       selected: {
-        true: "border-gray-100",
-        false: "border-gray-200 bg-gray-200 text-gray-600",
+        true: null,
+        false: "bg-gray-100 text-gray-600",
       },
     },
   },
 );
+
+const chevronVariants = cva("size-5 transition-transform", {
+  variants: {
+    isOpen: {
+      true: "-rotate-180",
+      false: null,
+    },
+  },
+});
 
 export default HomePage;

@@ -20,11 +20,11 @@ const Input = (
 };
 
 const inputFormVariants = cva(
-  "w-full rounded-xl border bg-white px-3 py-2.5 text-base font-light hover:border-blue-300 hover:outline hover:outline-blue-300 focus:border-blue-500 focus:outline focus:outline-blue-500",
+  "w-full rounded-xl border bg-white px-3 py-1 text-base font-light enabled:hover:border-blue-300 enabled:hover:outline enabled:hover:outline-blue-300 enabled:focus:border-blue-500 enabled:focus:outline enabled:focus:outline-blue-500 disabled:bg-gray-100 disabled:text-gray-600",
   {
     variants: {
       invalid: {
-        true: "border-red-500 outline outline-red-500 hover:border-red-500 hover:outline-red-500 focus:border-red-500 focus:outline-red-500",
+        true: "border-red-500 outline outline-red-500 enabled:hover:border-red-500 enabled:hover:outline-red-500 enabled:focus:border-red-500 enabled:focus:outline-red-500",
         false: "border-gray-200",
       },
     },

@@ -9,7 +9,7 @@ import { HomePage } from "./pages";
 
 const App = () => {
   return (
-    <div className="flex min-h-screen w-full justify-center bg-gray-300 pt-[env(safe-area-inset-top)] font-[Pretendard] font-medium text-gray-800 antialiased">
+    <div className="flex min-h-screen w-full justify-center bg-gray-200 pt-[env(safe-area-inset-top)] font-[Pretendard] font-medium text-gray-800 antialiased">
       <VStack className="min-h-screen w-full max-w-120 justify-between bg-white">
         <Header />
         <main className="flex min-h-0 w-full flex-1 justify-center">
