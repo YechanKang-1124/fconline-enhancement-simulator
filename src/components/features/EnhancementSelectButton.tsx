@@ -64,7 +64,7 @@ const EnhancementSelectButton = ({
       </button>
 
       {isLevelSelectorOpen && (
-        <HStack className="absolute top-full left-0 z-10 mt-1 -translate-x-2 items-start gap-1 rounded-sm border border-gray-200 bg-white p-2 shadow-lg">
+        <HStack className="absolute top-full left-0 z-10 mt-1 -translate-x-2 items-start gap-1 rounded-sm border border-gray-400 bg-white p-2 shadow-lg">
           <VStack className="h-full gap-1">
             {(range(1, 8) as EnhancementLevel[]).map((level) => (
               <button

@@ -250,7 +250,7 @@ const HomePage = () => {
   };
 
   const { isOpen: isCostInputTableOpen, onToggle: onToggleCostInputTable } =
-    useDisclosure();
+    useDisclosure(true);
 
   const handleSimulate = () => {
     simulationWorkersRef.current.forEach((worker) => worker.terminate());
@@ -397,10 +397,10 @@ const HomePage = () => {
                 </tbody>
                 <tfoot className="bg-gray-200">
                   <tr>
-                    <th className="border px-4 py-3 text-center text-base font-semibold">
+                    <th className="border px-4 py-2 text-center text-base font-semibold">
                       합계
                     </th>
-                    <th className="border px-4 py-3 text-right text-sm font-semibold tabular-nums">
+                    <th className="border px-4 py-2 text-right text-sm font-semibold tabular-nums">
                       {formatFixedNumber(totalAvgAttempts, 2)}회
                     </th>
                   </tr>
@@ -457,7 +457,7 @@ const HomePage = () => {
               className="w-fit cursor-pointer"
             >
               <HStack className="gap-2.5">
-                <h2 className="text-xl font-semibold">강화 등급별 강화 비용</h2>
+                <h2 className="text-xl font-semibold">강화 비용 입력</h2>
                 <IconChevronDown
                   className={chevronVariants({ isOpen: isCostInputTableOpen })}
                 />
@@ -546,10 +546,10 @@ const HomePage = () => {
                 </tbody>
                 <tfoot className="bg-gray-200">
                   <tr>
-                    <th className="border px-4 py-3 text-center text-base font-semibold">
+                    <th className="border px-4 py-2 text-center text-base font-semibold">
                       합계
                     </th>
-                    <th className="border px-4 py-3 text-right text-sm font-semibold tabular-nums">
+                    <th className="border px-4 py-2 text-right text-sm font-semibold tabular-nums">
                       {formatBP(totalAvgCost)}
                     </th>
                   </tr>
