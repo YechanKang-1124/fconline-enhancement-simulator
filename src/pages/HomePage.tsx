@@ -1,11 +1,13 @@
+import { cva } from "class-variance-authority";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { IconArrowDown } from "@/assets/icons";
 import {
   EnhancementBadge,
   EnhancementSelectButton,
+  EnhancementStepIndicator,
 } from "@/components/features";
-import { Button, Checkbox, HStack, Input, VStack } from "@/components/ui";
+import { Button, HStack, Input, VStack } from "@/components/ui";
 import {
   DEFAULT_PERCENTILES,
   ENHANCEMENT_RESULT_PROBAIBILITIES,
@@ -22,6 +24,10 @@ import {
 import { range } from "@/utils/array";
 import { formatBP, formatFixedNumber, formatNumber } from "@/utils/formatters";
 import { getZeroSquareMatrix, invertMatrix } from "@/utils/matrix";
+
+const TABS = ["attempts", "cost"] as const;
+
+type Tab = (typeof TABS)[number];
 
 const PERCENTILE_LABELS_BY_PERCENTILE: {
   percentile: string;
@@ -176,7 +182,6 @@ const calculate = (
 const HomePage = () => {
   const [currentLevel, setCurrentLevel] = useState<EnhancementLevel>(1);
   const [targetLevel, setTargetLevel] = useState<EnhancementLevel>(8);
-  const [encludeCost, setEncludeCost] = useState(false);
   const [costsPerLevel, setCostsPerLevel] = useState<number[]>(() =>
     range(12).map(() => 0),
   );
@@ -186,6 +191,8 @@ const HomePage = () => {
   const [totalCostPercentiles, setTotalCostPercentiles] = useState<Percentiles>(
     { ...DEFAULT_PERCENTILES },
   );
+  const [selectedTab, setSelectedTab] = useState<Tab>("attempts");
+
   const simulationWorkersRef = useRef<Worker[]>([]);
   const simulationRunIdRef = useRef(0);
 
@@ -206,7 +213,7 @@ const HomePage = () => {
     simulationRunIdRef.current++;
     setSimulationStatus("idle");
     setTotalCostPercentiles({ ...DEFAULT_PERCENTILES });
-  }, [currentLevel, targetLevel, encludeCost, costsPerLevel]);
+  }, [currentLevel, targetLevel, costsPerLevel]);
 
   useEffect(() => {
     return () => {
@@ -320,8 +327,8 @@ const HomePage = () => {
   };
 
   return (
-    <VStack className="min-h-screen w-full gap-8 px-4 py-4">
-      <VStack className="gap-2">
+    <VStack className="min-h-screen w-full gap-4 pt-4 pb-16">
+      <VStack className="gap-3 py-4">
         <HStack className="gap-4">
           <span className="block text-2xl font-semibold">현재 강화 등급</span>
           <EnhancementSelectButton
@@ -342,152 +349,162 @@ const HomePage = () => {
             onCloseLevelSelector={onCloseTargetLevelSelector}
           />
         </HStack>
-        <label>
-          <HStack className="cursor-pointer gap-1">
-            <Checkbox
-              checked={encludeCost}
-              onChange={(event) => setEncludeCost(event.target.checked)}
-            />
-            <span>강화 비용 계산</span>
-          </HStack>
-        </label>
-        {encludeCost && (
-          <table>
-            <thead>
-              <tr>
-                <th className="w-1/2 border px-4 py-3 text-left">강화 등급</th>
-                <th className="w-1/2 border px-4 py-3 text-right">강화 비용</th>
-              </tr>
-            </thead>
-            <tbody>
-              {range(targetLevel - 1).map((_, idx) => {
-                const level = (idx + 1) as EnhancementLevel;
-
-                return (
-                  <tr key={level}>
-                    <td className="border px-4 py-2.5">
-                      <HStack className="justify-start gap-2">
-                        <EnhancementBadge level={level} />
-                        <IconArrowDown className="size-5 -rotate-90 text-gray-600" />
-                        <EnhancementBadge
-                          level={(level + 1) as EnhancementLevel}
-                        />
-                      </HStack>
-                    </td>
-                    <td className="border px-4 py-2.5">
-                      <HStack className="gap-1">
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={formatNumber(costsPerLevel[idx])}
-                          onChange={(event) => {
-                            const valueWithoutCommas =
-                              event.target.value.replaceAll(",", "");
-                            if (!/^\d*$/.test(valueWithoutCommas)) {
-                              return;
-                            }
-                            setCostsPerLevel((prev) => {
-                              const next = [...prev];
-                              next[idx] = Number(valueWithoutCommas);
-                              return next;
-                            });
-                          }}
-                        />
-                        <span>BP</span>
-                      </HStack>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
       </VStack>
-      <VStack className="w-full items-stretch gap-3">
-        <h2 className="text-xl font-semibold">
-          각 강화 등급별 평균 강화 시도 횟수
-        </h2>
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-80 table-fixed border-collapse border text-sm sm:text-base">
-            <thead>
-              <tr>
-                <th className="w-1/2 border px-4 py-3 text-left font-semibold">
-                  강화 등급
-                </th>
-                <th className="w-1/2 border px-4 py-3 text-right font-semibold">
-                  평균 강화 시도 횟수
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {avgAttemptsPerLevel.map((attempts, idx) => (
-                <tr key={idx}>
-                  <td className="border px-4 py-2.5 align-middle">
-                    <HStack key={idx} className="justify-start gap-2">
-                      <EnhancementBadge level={(idx + 1) as EnhancementLevel} />
-                      <IconArrowDown className="size-5 -rotate-90 text-gray-600" />
-                      <EnhancementBadge level={(idx + 2) as EnhancementLevel} />
-                    </HStack>
-                  </td>
-                  <td className="border px-4 py-2.5 text-right align-middle font-medium tabular-nums">
-                    <p>{formatFixedNumber(attempts, 2)}회</p>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <th className="border px-4 py-3 text-left font-semibold">
-                  합계
-                </th>
-                <th className="border px-4 py-3 text-right font-semibold tabular-nums">
-                  {formatFixedNumber(totalAvgAttempts, 2)}회
-                </th>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </VStack>
-      <VStack className="w-full items-stretch gap-3">
-        <h2 className="text-xl font-semibold">총 강화 시도 횟수 백분위수</h2>
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-72 table-fixed border-collapse border text-sm sm:text-base">
-            <thead>
-              <tr>
-                <th className="w-1/2 border px-4 py-3 text-left font-semibold">
-                  백분위
-                </th>
-                <th className="w-1/2 border px-4 py-3 text-right font-semibold">
-                  총 강화 시도 횟수
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {PERCENTILE_LABELS_BY_PERCENTILE.map(({ percentile, key }) => (
-                <tr key={percentile}>
-                  <td className="border px-4 py-2.5 align-middle">
-                    <div className="flex w-full items-center justify-start">
-                      <p className="font-semibold">{percentile}</p>
-                    </div>
-                  </td>
-                  <td className="border px-4 py-2.5 text-right align-middle font-medium tabular-nums">
-                    <div className="flex w-full items-center justify-end">
-                      {attemptsPercentiles[key] > 0
-                        ? `${formatNumber(attemptsPercentiles[key])}회`
-                        : "100,000회 이상"}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </VStack>
-      {encludeCost && (
-        <>
+      <HStack className="w-full">
+        {TABS.map((tab) => (
+          <a
+            key={tab}
+            onClick={() => setSelectedTab(tab)}
+            className={tabVariants({ selected: tab === selectedTab })}
+          >
+            <span>{tab === "attempts" ? "강화 시도 횟수" : "강화 비용"}</span>
+          </a>
+        ))}
+      </HStack>
+      {selectedTab === "attempts" && (
+        <VStack className="gap-8 px-6 pt-2">
           <VStack className="w-full items-stretch gap-3">
             <h2 className="text-xl font-semibold">
-              각 강화 등급별 평균 강화 시도 비용
+              강화 등급별 평균 강화 시도 횟수
+            </h2>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full table-fixed border-collapse border">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
+                      강화 등급
+                    </th>
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
+                      평균 강화 시도 횟수
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {avgAttemptsPerLevel.map((attempts, idx) => (
+                    <tr key={idx}>
+                      <td className="border px-4 py-2 align-middle">
+                        <EnhancementStepIndicator
+                          level={(idx + 1) as EnhancementLevel}
+                        />
+                      </td>
+                      <td className="border px-4 py-2 text-right align-middle font-light tabular-nums">
+                        <p>{formatFixedNumber(attempts, 2)} 회</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-200">
+                  <tr>
+                    <th className="border px-4 py-3 text-center text-base font-semibold">
+                      합계
+                    </th>
+                    <th className="border px-4 py-3 text-right text-sm font-semibold tabular-nums">
+                      {formatFixedNumber(totalAvgAttempts, 2)}회
+                    </th>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </VStack>
+          <VStack className="w-full items-stretch gap-3">
+            <h2 className="text-xl font-semibold">
+              총 강화 시도 횟수 백분위수
+            </h2>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full table-fixed border-collapse border">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
+                      백분위
+                    </th>
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
+                      총 강화 시도 횟수
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {PERCENTILE_LABELS_BY_PERCENTILE.map(
+                    ({ percentile, key }) => (
+                      <tr key={percentile}>
+                        <td className="border px-4 py-2.5 align-middle">
+                          <div className="flex w-full items-center justify-center">
+                            <p className="font-semibold">{percentile}</p>
+                          </div>
+                        </td>
+                        <td className="border px-4 py-2.5 text-right align-middle font-light tabular-nums">
+                          <div className="flex w-full items-center justify-end">
+                            {attemptsPercentiles[key] > 0
+                              ? `${formatNumber(attemptsPercentiles[key])} 회`
+                              : "100,000 회 이상"}
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </VStack>
+        </VStack>
+      )}
+      {selectedTab === "cost" && (
+        <VStack className="gap-8 px-6 pt-2">
+          <VStack className="w-full items-stretch gap-3">
+            <h2 className="text-xl font-semibold">
+              강화 등급별 강화 시도 비용
+            </h2>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full table-fixed border-collapse border">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
+                      강화 등급
+                    </th>
+                    <th className="w-1/2 border py-2.5 text-center font-semibold">
+                      강화 비용
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {range(targetLevel - 1).map((_, idx) => (
+                    <tr key={idx}>
+                      <td className="border px-4 py-2 align-middle">
+                        <EnhancementStepIndicator
+                          level={(idx + 1) as EnhancementLevel}
+                        />
+                      </td>
+                      <td className="border px-4 py-2 align-middle tabular-nums">
+                        <HStack className="gap-1">
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            value={formatNumber(costsPerLevel[idx])}
+                            onChange={(event) => {
+                              const valueWithoutCommas =
+                                event.target.value.replaceAll(",", "");
+                              if (!/^\d*$/.test(valueWithoutCommas)) {
+                                return;
+                              }
+                              setCostsPerLevel((prev) => {
+                                const next = [...prev];
+                                next[idx] = Number(valueWithoutCommas);
+                                return next;
+                              });
+                            }}
+                            className="text-end font-medium"
+                          />
+                          <span>BP</span>
+                        </HStack>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </VStack>
+          <VStack className="w-full items-stretch gap-3">
+            <h2 className="text-xl font-semibold">
+              강화 등급별 평균 강화 시도 비용
             </h2>
             <div className="w-full overflow-x-auto">
               <table className="w-full min-w-80 table-fixed border-collapse border text-sm sm:text-base">
@@ -585,10 +602,22 @@ const HomePage = () => {
               </table>
             </div>
           </VStack>
-        </>
+        </VStack>
       )}
     </VStack>
   );
 };
+
+const tabVariants = cva(
+  "flex w-1/2 cursor-pointer items-center justify-center border-x-2 border-t-2 py-2 text-lg font-semibold",
+  {
+    variants: {
+      selected: {
+        true: "border-gray-100",
+        false: "border-gray-200 bg-gray-200 text-gray-600",
+      },
+    },
+  },
+);
 
 export default HomePage;
