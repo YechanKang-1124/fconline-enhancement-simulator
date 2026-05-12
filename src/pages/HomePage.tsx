@@ -240,10 +240,16 @@ const HomePage = () => {
 
   const handleChangeCurrentLevel = (level: EnhancementLevel) => {
     setCurrentLevel(level);
+    if (level < 13 && level >= targetLevel) {
+      setTargetLevel((level + 1) as EnhancementLevel);
+    }
     onCloseCurrentLevelSelector();
   };
   const handleChangeTargetLevel = (level: EnhancementLevel) => {
     setTargetLevel(level);
+    if (level >= 2 && level <= currentLevel) {
+      setCurrentLevel((level - 1) as EnhancementLevel);
+    }
     onCloseTargetLevelSelector();
   };
 
@@ -342,6 +348,7 @@ const HomePage = () => {
           <span className={levelSelectorLabelVariants()}>현재 강화 등급</span>
           <EnhancementSelectButton
             level={currentLevel}
+            maxLevel={12}
             onChangeLevel={handleChangeCurrentLevel}
             isLevelSelectorOpen={isCurrentLevelSelectorOpen}
             onToggleLevelSelector={handleToggleCurrentLevelSelector}
@@ -352,6 +359,7 @@ const HomePage = () => {
           <span className={levelSelectorLabelVariants()}>목표 강화 등급</span>
           <EnhancementSelectButton
             level={targetLevel}
+            minLevel={2}
             onChangeLevel={handleChangeTargetLevel}
             isLevelSelectorOpen={isTargetLevelSelectorOpen}
             onToggleLevelSelector={handleToggleTargetLevelSelector}

@@ -10,6 +10,8 @@ import { HStack, VStack } from "../ui";
 
 interface EnhancementSelectButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   level: EnhancementLevel;
+  minLevel?: number;
+  maxLevel?: number;
   onChangeLevel: (value: EnhancementLevel) => void;
   isLevelSelectorOpen: boolean;
   onToggleLevelSelector: () => void;
@@ -18,6 +20,8 @@ interface EnhancementSelectButtonProps extends ButtonHTMLAttributes<HTMLButtonEl
 
 const EnhancementSelectButton = ({
   level,
+  minLevel = 1,
+  maxLevel = 13,
   onChangeLevel,
   isLevelSelectorOpen,
   onToggleLevelSelector,
@@ -65,36 +69,44 @@ const EnhancementSelectButton = ({
 
       {isLevelSelectorOpen && (
         <HStack className="absolute top-full left-0 z-10 mt-1 -translate-x-2 items-start gap-1 rounded-sm border border-gray-400 bg-white p-2 shadow-lg">
-          <VStack className="h-full gap-1">
-            {(range(1, 8) as EnhancementLevel[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => onChangeLevel(level)}
-                className={enhanceTierVariants({
-                  size: "lg",
-                  tier: getEnhancementTier(level),
-                  className: "cursor-pointer",
-                })}
-              >
-                {level}
-              </button>
-            ))}
-          </VStack>
-          <VStack className="h-full gap-1">
-            {(range(8, 14) as EnhancementLevel[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => onChangeLevel(level)}
-                className={enhanceTierVariants({
-                  size: "lg",
-                  tier: getEnhancementTier(level),
-                  className: "cursor-pointer",
-                })}
-              >
-                {level}
-              </button>
-            ))}
-          </VStack>
+          {minLevel < 8 && (
+            <VStack className="h-full gap-1">
+              {(
+                range(minLevel, Math.min(7, maxLevel) + 1) as EnhancementLevel[]
+              ).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => onChangeLevel(level)}
+                  className={enhanceTierVariants({
+                    size: "lg",
+                    tier: getEnhancementTier(level),
+                    className: "cursor-pointer",
+                  })}
+                >
+                  {level}
+                </button>
+              ))}
+            </VStack>
+          )}
+          {maxLevel >= 8 && (
+            <VStack className="h-full gap-1">
+              {(
+                range(Math.max(8, minLevel), maxLevel + 1) as EnhancementLevel[]
+              ).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => onChangeLevel(level)}
+                  className={enhanceTierVariants({
+                    size: "lg",
+                    tier: getEnhancementTier(level),
+                    className: "cursor-pointer",
+                  })}
+                >
+                  {level}
+                </button>
+              ))}
+            </VStack>
+          )}
         </HStack>
       )}
     </div>
