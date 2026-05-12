@@ -3,7 +3,7 @@ import { cva } from "class-variance-authority";
 import Spinner from "./Spinner";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  color?: "white" | "blue" | "green" | "gray";
+  color?: "white" | "blue" | "green" | "gray" | "fc";
   size?: "sm" | "md" | "lg";
   loading?: boolean;
   leftIcon?: React.ReactNode;
@@ -66,6 +66,7 @@ const buttonVariants = cva(
         blue: null,
         green: null,
         gray: null,
+        fc: null,
       },
       size: {
         sm: "rounded-md px-1.5 py-1 text-xs",
@@ -106,6 +107,12 @@ const buttonVariants = cva(
         className:
           "border-gray-700 bg-gray-700 text-white hover:border-gray-600 hover:bg-gray-600",
       },
+      {
+        color: "fc",
+        disabled: false,
+        className:
+          "border-gray-900 bg-gray-900 text-[#02f568] hover:border-gray-800 hover:bg-gray-800",
+      },
     ],
     defaultVariants: {
       color: "blue",
@@ -132,6 +139,7 @@ const spinnerVariants = cva(null, {
       blue: "text-white",
       green: "text-white",
       gray: "text-white",
+      fc: "text-[#02f568]",
     },
   },
 });
